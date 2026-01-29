@@ -1,0 +1,1137 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ASCEND Protocol - DeFi Lending</title>
+    <script src="https://cdn.ethers.io/lib/ethers-5.2.umd.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: #000000;
+            color: #ffffff;
+            min-height: 100vh;
+            padding: 20px;
+            overflow-x: hidden;
+        }
+
+        /* Animated Background Particles */
+        body::before {
+            content: '';
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: radial-gradient(circle at 20% 50%, rgba(0, 102, 255, 0.05) 0%, transparent 50%),
+                        radial-gradient(circle at 80% 80%, rgba(0, 212, 255, 0.05) 0%, transparent 50%);
+            animation: float 10s ease-in-out infinite;
+            pointer-events: none;
+            z-index: -1;
+        }
+
+        @keyframes float {
+            0%, 100% { transform: translate(0, 0); }
+            50% { transform: translate(20px, 20px); }
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        /* Header */
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 20px 0;
+            margin-bottom: 40px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .logo {
+            font-size: 24px;
+            font-weight: 700;
+            color: #ffffff;
+        }
+
+        #connectBtn {
+            background: linear-gradient(90deg, #00d4ff, #0066ff);
+            border: none;
+            padding: 12px 28px;
+            border-radius: 12px;
+            color: white;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+            font-size: 14px;
+        }
+
+        #connectBtn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(0, 102, 255, 0.4);
+        }
+
+        #connectBtn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+
+        /* Main Dashboard */
+        .dashboard {
+            display: none;
+        }
+
+        .dashboard.active {
+            display: block;
+        }
+
+        /* Credit Score Card */
+        .score-card {
+            background: rgba(255, 255, 255, 0.02);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            border-radius: 24px;
+            padding: 40px;
+            margin-bottom: 30px;
+            text-align: center;
+            animation: slideUp 0.6s ease-out;
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+
+        .score-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 20px 60px rgba(0, 102, 255, 0.2);
+        }
+
+        @keyframes slideUp {
+            from {
+                opacity: 0;
+                transform: translateY(30px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .score-label {
+            font-size: 14px;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            opacity: 0.6;
+            margin-bottom: 10px;
+        }
+
+        .score-value {
+            font-size: 72px;
+            font-weight: 700;
+            color: #00d4ff;
+            margin-bottom: 20px;
+            animation: countUp 1s ease-out, glow 2s ease-in-out infinite;
+        }
+
+        @keyframes countUp {
+            from {
+                opacity: 0;
+                transform: scale(0.5);
+            }
+            to {
+                opacity: 1;
+                transform: scale(1);
+            }
+        }
+
+        @keyframes glow {
+            0%, 100% {
+                text-shadow: 0 0 20px rgba(0, 212, 255, 0.5);
+            }
+            50% {
+                text-shadow: 0 0 30px rgba(0, 212, 255, 0.8), 0 0 40px rgba(0, 212, 255, 0.6);
+            }
+        }
+
+        .score-bar {
+            width: 100%;
+            height: 12px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 10px;
+            overflow: hidden;
+            margin-bottom: 30px;
+        }
+
+        .score-progress {
+            height: 100%;
+            background: linear-gradient(90deg, #00d4ff, #0066ff);
+            border-radius: 10px;
+            transition: width 1s ease;
+        }
+
+        .stats-row {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 20px;
+            margin-top: 30px;
+        }
+
+        .stat {
+            text-align: center;
+        }
+
+        .stat-label {
+            font-size: 12px;
+            opacity: 0.6;
+            margin-bottom: 8px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .stat-value {
+            font-size: 24px;
+            font-weight: 600;
+        }
+
+        /* Action Cards */
+        .action-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+
+        .action-card {
+            background: rgba(255, 255, 255, 0.02);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            border-radius: 24px;
+            padding: 30px;
+            animation: fadeIn 0.6s ease-out;
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .action-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(0, 102, 255, 0.1), transparent);
+            transition: left 0.5s ease;
+        }
+
+        .action-card:hover::before {
+            left: 100%;
+        }
+
+        .action-card:hover {
+            transform: translateY(-5px);
+            border-color: rgba(0, 102, 255, 0.3);
+            box-shadow: 0 15px 40px rgba(0, 102, 255, 0.15);
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: scale(0.95);
+            }
+            to {
+                opacity: 1;
+                transform: scale(1);
+            }
+        }
+
+        .action-card h3 {
+            font-size: 20px;
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            position: relative;
+            padding-left: 20px;
+        }
+
+        .action-card h3::before {
+            content: '';
+            position: absolute;
+            left: 0;
+            width: 4px;
+            height: 20px;
+            background: linear-gradient(180deg, #00d4ff, #0066ff);
+            border-radius: 2px;
+        }
+
+        .input-group {
+            margin-bottom: 20px;
+        }
+
+        .input-group label {
+            display: block;
+            font-size: 13px;
+            margin-bottom: 8px;
+            opacity: 0.8;
+        }
+
+        .input-group input,
+        .input-group select {
+            width: 100%;
+            padding: 14px;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 10px;
+            color: white;
+            font-size: 16px;
+            transition: border-color 0.3s;
+        }
+
+        .input-group input:focus,
+        .input-group select:focus {
+            outline: none;
+            border-color: #0066ff;
+        }
+
+        .input-group input::placeholder {
+            color: rgba(255, 255, 255, 0.3);
+        }
+
+        .result-box {
+            background: rgba(0, 102, 255, 0.1);
+            border: 1px solid rgba(0, 102, 255, 0.3);
+            border-radius: 10px;
+            padding: 15px;
+            margin-bottom: 20px;
+            display: none;
+        }
+
+        .result-box.show {
+            display: block;
+        }
+
+        .result-label {
+            font-size: 12px;
+            opacity: 0.7;
+            margin-bottom: 5px;
+        }
+
+        .result-value {
+            font-size: 24px;
+            font-weight: 600;
+        }
+
+        .btn {
+            width: 100%;
+            padding: 16px;
+            background: linear-gradient(90deg, #00d4ff, #0066ff);
+            border: none;
+            border-radius: 12px;
+            color: white;
+            font-weight: 600;
+            font-size: 16px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .btn::before {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 0;
+            height: 0;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.3);
+            transform: translate(-50%, -50%);
+            transition: width 0.6s, height 0.6s;
+        }
+
+        .btn:hover::before {
+            width: 300px;
+            height: 300px;
+        }
+
+        .btn:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 30px rgba(0, 102, 255, 0.5);
+        }
+
+        .btn:active:not(:disabled) {
+            transform: scale(0.98);
+        }
+
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .btn-secondary {
+            background: rgba(255, 255, 255, 0.1);
+            margin-top: 10px;
+        }
+
+        /* Loans List */
+        .loans-section {
+            background: rgba(255, 255, 255, 0.02);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            border-radius: 24px;
+            padding: 30px;
+            animation: slideUp 0.8s ease-out;
+        }
+
+        .loans-section h3 {
+            font-size: 20px;
+            margin-bottom: 20px;
+            padding-left: 20px;
+            position: relative;
+        }
+
+        .loans-section h3::before {
+            content: '';
+            position: absolute;
+            left: 0;
+            width: 4px;
+            height: 20px;
+            background: linear-gradient(180deg, #00d4ff, #0066ff);
+            border-radius: 2px;
+        }
+
+        .loan-item {
+            background: rgba(255, 255, 255, 0.01);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            border-radius: 16px;
+            padding: 20px;
+            margin-bottom: 15px;
+            animation: fadeInUp 0.5s ease-out;
+            transition: all 0.3s ease;
+        }
+
+        .loan-item:hover {
+            background: rgba(255, 255, 255, 0.03);
+            border-color: rgba(0, 102, 255, 0.2);
+            transform: translateX(5px);
+        }
+
+        @keyframes fadeInUp {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .loan-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+
+        .loan-id {
+            font-weight: 600;
+            font-size: 14px;
+            opacity: 0.7;
+        }
+
+        .loan-status {
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+
+        .status-active {
+            background: rgba(255, 193, 7, 0.2);
+            color: #ffc107;
+        }
+
+        .status-repaid {
+            background: rgba(76, 175, 80, 0.2);
+            color: #4caf50;
+        }
+
+        .loan-details {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+            gap: 15px;
+            margin-bottom: 15px;
+        }
+
+        .loan-detail {
+            font-size: 13px;
+        }
+
+        .loan-detail-label {
+            opacity: 0.6;
+            margin-bottom: 4px;
+        }
+
+        .loan-detail-value {
+            font-weight: 600;
+            font-size: 16px;
+        }
+
+        /* Welcome Screen */
+        .welcome {
+            text-align: center;
+            padding: 80px 20px;
+        }
+
+        .welcome h1 {
+            font-size: 48px;
+            margin-bottom: 20px;
+            color: #ffffff;
+            animation: fadeInDown 0.8s ease-out;
+        }
+
+        @keyframes fadeInDown {
+            from {
+                opacity: 0;
+                transform: translateY(-30px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .welcome p {
+            font-size: 18px;
+            opacity: 0.7;
+            margin-bottom: 40px;
+            max-width: 600px;
+            margin-left: auto;
+            margin-right: auto;
+        }
+
+        .features {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 30px;
+            margin-top: 60px;
+        }
+
+        .feature {
+            background: rgba(255, 255, 255, 0.02);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            border-radius: 20px;
+            padding: 30px;
+            text-align: center;
+            animation: scaleIn 0.5s ease-out backwards;
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .feature:nth-child(1) { animation-delay: 0.1s; }
+        .feature:nth-child(2) { animation-delay: 0.2s; }
+        .feature:nth-child(3) { animation-delay: 0.3s; }
+
+        .feature::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 2px;
+            background: linear-gradient(90deg, transparent, #0066ff, transparent);
+            transform: translateX(-100%);
+            transition: transform 0.6s ease;
+        }
+
+        .feature:hover::before {
+            transform: translateX(100%);
+        }
+
+        .feature:hover {
+            transform: translateY(-10px);
+            border-color: rgba(0, 102, 255, 0.3);
+            background: rgba(255, 255, 255, 0.04);
+        }
+
+        @keyframes scaleIn {
+            from {
+                opacity: 0;
+                transform: scale(0.8);
+            }
+            to {
+                opacity: 1;
+                transform: scale(1);
+            }
+        }
+
+        .feature-icon {
+            width: 60px;
+            height: 60px;
+            margin: 0 auto 20px;
+            background: linear-gradient(135deg, rgba(0, 212, 255, 0.1), rgba(0, 102, 255, 0.1));
+            border-radius: 16px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 28px;
+            animation: pulse 2s ease-in-out infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+        }
+
+        .feature-icon svg {
+            stroke: #00d4ff;
+        }
+
+        .feature h3 {
+            font-size: 18px;
+            margin-bottom: 10px;
+        }
+
+        .feature p {
+            font-size: 14px;
+            opacity: 0.6;
+            margin: 0;
+        }
+
+        /* Notification */
+        .notification {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: rgba(0, 102, 255, 0.95);
+            backdrop-filter: blur(10px);
+            padding: 16px 24px;
+            border-radius: 12px;
+            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.3);
+            transform: translateX(400px);
+            transition: transform 0.3s ease;
+            z-index: 1000;
+        }
+
+        .notification.show {
+            transform: translateX(0);
+        }
+
+        /* Loading Spinner */
+        .spinner {
+            display: inline-block;
+            width: 16px;
+            height: 16px;
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            border-top-color: white;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .loading-text {
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .score-value {
+                font-size: 56px;
+            }
+
+            .action-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .welcome h1 {
+                font-size: 36px;
+            }
+
+            header {
+                flex-direction: column;
+                gap: 20px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <header>
+            <div class="logo">⚡ ASCEND Protocol</div>
+            <button id="connectBtn">Connect Wallet</button>
+        </header>
+
+        <!-- Welcome Screen -->
+        <div class="welcome" id="welcomeScreen">
+            <h1>Build Your On-Chain Credit Score</h1>
+            <p>Borrow funds with personalized interest rates. Pay on time, build reputation, unlock better terms.</p>
+            
+            <div class="features">
+                <div class="feature">
+                    <div class="feature-icon">
+                        <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M3 3v18h18"/>
+                            <path d="M18 17V9"/>
+                            <path d="M13 17V5"/>
+                            <path d="M8 17v-3"/>
+                        </svg>
+                    </div>
+                    <h3>Dynamic Rates</h3>
+                    <p>Start at 15%, build to 5% with good payment history</p>
+                </div>
+                <div class="feature">
+                    <div class="feature-icon">
+                        <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <circle cx="12" cy="12" r="10"/>
+                            <path d="M12 6v6l4 2"/>
+                        </svg>
+                    </div>
+                    <h3>Progressive Limits</h3>
+                    <p>Grow from $100 to $10,000 credit limit</p>
+                </div>
+                <div class="feature">
+                    <div class="feature-icon">
+                        <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>
+                        </svg>
+                    </div>
+                    <h3>Instant Loans</h3>
+                    <p>No approval process, borrow immediately</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Dashboard -->
+        <div class="dashboard" id="dashboard">
+            <!-- Credit Score Card -->
+            <div class="score-card">
+                <div class="score-label">Your Credit Score</div>
+                <div class="score-value" id="creditScore">0</div>
+                <div class="score-bar">
+                    <div class="score-progress" id="scoreProgress" style="width: 0%"></div>
+                </div>
+                
+                <div class="stats-row">
+                    <div class="stat">
+                        <div class="stat-label">Max Loan</div>
+                        <div class="stat-value" id="maxLoan">$0</div>
+                    </div>
+                    <div class="stat">
+                        <div class="stat-label">Interest Rate</div>
+                        <div class="stat-value" id="interestRate">0%</div>
+                    </div>
+                    <div class="stat">
+                        <div class="stat-label">Total Loans</div>
+                        <div class="stat-value" id="totalLoans">0</div>
+                    </div>
+                    <div class="stat">
+                        <div class="stat-label">On-Time Rate</div>
+                        <div class="stat-value" id="onTimeRate">0%</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Actions -->
+            <div class="action-grid">
+                <!-- Borrow Card -->
+                <div class="action-card">
+                    <h3>Borrow Funds</h3>
+                    
+                    <div class="input-group">
+                        <label>Amount (tokens)</label>
+                        <input type="number" id="borrowAmount" placeholder="100" min="1">
+                    </div>
+                    
+                    <div class="input-group">
+                        <label>Duration (days)</label>
+                        <select id="borrowDuration">
+                            <option value="7">7 days</option>
+                            <option value="14">14 days</option>
+                            <option value="30" selected>30 days</option>
+                            <option value="60">60 days</option>
+                            <option value="90">90 days</option>
+                        </select>
+                    </div>
+
+                    <div class="result-box" id="borrowResult">
+                        <div class="result-label">You'll repay</div>
+                        <div class="result-value" id="repayAmount">0</div>
+                    </div>
+                    
+                    <button class="btn" id="calculateBtn">Calculate</button>
+                    <button class="btn btn-secondary" id="borrowBtn" disabled>Request Loan</button>
+                </div>
+
+                <!-- Repay Card -->
+                <div class="action-card">
+                    <h3>Repay Loan</h3>
+                    
+                    <div class="input-group">
+                        <label>Loan ID</label>
+                        <input type="number" id="repayLoanId" placeholder="1" min="1">
+                    </div>
+
+                    <div class="result-box" id="repayResult">
+                        <div class="result-label">Amount Due</div>
+                        <div class="result-value" id="dueAmount">0</div>
+                        <div class="result-label" style="margin-top: 10px;">Deadline</div>
+                        <div class="result-value" style="font-size: 16px;" id="deadline">-</div>
+                    </div>
+                    
+                    <button class="btn" id="checkLoanBtn">Check Loan</button>
+                    <button class="btn btn-secondary" id="repayBtn" disabled>Repay Now</button>
+                </div>
+
+                <!-- Fund Pool Card (Owner Only) -->
+                <div class="action-card" id="ownerCard" style="display: none;">
+                    <h3>Fund Pool (Owner)</h3>
+                    
+                    <div class="input-group">
+                        <label>Amount (tokens)</label>
+                        <input type="number" id="fundAmount" placeholder="10000" min="1">
+                    </div>
+
+                    <div class="result-box show">
+                        <div class="result-label">Current Liquidity</div>
+                        <div class="result-value" id="poolLiquidity">0</div>
+                    </div>
+                    
+                    <button class="btn" id="fundBtn">Add Liquidity</button>
+                </div>
+            </div>
+
+            <!-- Loans History -->
+            <div class="loans-section">
+                <h3>Your Loans</h3>
+                <div id="loansList">
+                    <p style="opacity: 0.5; text-align: center;">No loans yet. Borrow your first loan above!</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Notification -->
+    <div class="notification" id="notification"></div>
+
+    <script>
+        // Contract Configuration
+        const CONTRACT_ADDRESS = "YOUR_CONTRACT_ADDRESS_HERE";
+        const TOKEN_ADDRESS = "YOUR_TOKEN_ADDRESS_HERE";
+        
+        // Contract ABI (simplified - add your full ABI here)
+        const CONTRACT_ABI = [
+            "function getUserProfile(address) view returns (uint256, uint256, uint256, uint256, uint256, uint256, uint256, uint256)",
+            "function requestLoan(uint256, uint256)",
+            "function repayLoan(uint256)",
+            "function getLoanDetails(uint256) view returns (address, uint256, uint256, uint256, bool, bool, bool)",
+            "function getUserLoans(address) view returns (uint256[])",
+            "function addLiquidity(uint256)",
+            "function totalLiquidity() view returns (uint256)",
+            "function owner() view returns (address)"
+        ];
+
+        const TOKEN_ABI = [
+            "function approve(address, uint256) returns (bool)",
+            "function balanceOf(address) view returns (uint256)"
+        ];
+
+        let provider, signer, contract, tokenContract, userAddress;
+
+        // Connect Wallet
+        document.getElementById('connectBtn').addEventListener('click', async () => {
+            try {
+                if (typeof window.ethereum === 'undefined') {
+                    showNotification('Please install MetaMask!');
+                    return;
+                }
+
+                const btn = document.getElementById('connectBtn');
+                btn.innerHTML = '<span class="loading-text"><span class="spinner"></span> Connecting...</span>';
+                btn.disabled = true;
+
+                provider = new ethers.providers.Web3Provider(window.ethereum);
+                await provider.send("eth_requestAccounts", []);
+                signer = provider.getSigner();
+                userAddress = await signer.getAddress();
+
+                contract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, signer);
+                tokenContract = new ethers.Contract(TOKEN_ADDRESS, TOKEN_ABI, signer);
+
+                btn.textContent = userAddress.slice(0, 6) + '...' + userAddress.slice(-4);
+                
+                document.getElementById('welcomeScreen').style.display = 'none';
+                document.getElementById('dashboard').classList.add('active');
+
+                await loadUserData();
+                showNotification('✅ Wallet connected!');
+            } catch (error) {
+                console.error(error);
+                showNotification('❌ Connection failed');
+                document.getElementById('connectBtn').textContent = 'Connect Wallet';
+                document.getElementById('connectBtn').disabled = false;
+            }
+        });
+
+        // Load User Data
+        async function loadUserData() {
+            try {
+                const profile = await contract.getUserProfile(userAddress);
+                
+                const creditScore = profile[0].toNumber();
+                const totalBorrowed = profile[1];
+                const totalRepaid = profile[2];
+                const loansCount = profile[3].toNumber();
+                const onTimePayments = profile[4].toNumber();
+                const latePayments = profile[5].toNumber();
+                const maxLoanAmount = profile[6];
+                const interestRate = profile[7].toNumber();
+
+                // Update UI
+                document.getElementById('creditScore').textContent = creditScore;
+                document.getElementById('scoreProgress').style.width = (creditScore / 10) + '%';
+                document.getElementById('maxLoan').textContent = '$' + ethers.utils.formatEther(maxLoanAmount);
+                document.getElementById('interestRate').textContent = interestRate + '%';
+                document.getElementById('totalLoans').textContent = loansCount;
+                
+                const onTimeRate = loansCount > 0 ? Math.round((onTimePayments / loansCount) * 100) : 0;
+                document.getElementById('onTimeRate').textContent = onTimeRate + '%';
+
+                // Check if owner
+                const owner = await contract.owner();
+                if (owner.toLowerCase() === userAddress.toLowerCase()) {
+                    document.getElementById('ownerCard').style.display = 'block';
+                    const liquidity = await contract.totalLiquidity();
+                    document.getElementById('poolLiquidity').textContent = ethers.utils.formatEther(liquidity);
+                }
+
+                // Load loans
+                await loadLoans();
+            } catch (error) {
+                console.error('Error loading data:', error);
+                showNotification('❌ Error loading data');
+            }
+        }
+
+        // Calculate Loan
+        document.getElementById('calculateBtn').addEventListener('click', () => {
+            const amount = document.getElementById('borrowAmount').value;
+            const days = document.getElementById('borrowDuration').value;
+            const rate = parseInt(document.getElementById('interestRate').textContent);
+
+            if (!amount || amount <= 0) {
+                showNotification('❌ Enter valid amount');
+                return;
+            }
+
+            const interest = (amount * rate * days) / (365 * 100);
+            const total = parseFloat(amount) + interest;
+
+            document.getElementById('repayAmount').textContent = total.toFixed(2) + ' tokens';
+            document.getElementById('borrowResult').classList.add('show');
+            document.getElementById('borrowBtn').disabled = false;
+        });
+
+        // Request Loan
+        document.getElementById('borrowBtn').addEventListener('click', async () => {
+            try {
+                const amount = document.getElementById('borrowAmount').value;
+                const days = document.getElementById('borrowDuration').value;
+                const amountWei = ethers.utils.parseEther(amount);
+
+                const btn = document.getElementById('borrowBtn');
+                btn.innerHTML = '<span class="loading-text"><span class="spinner"></span> Processing...</span>';
+                btn.disabled = true;
+
+                const tx = await contract.requestLoan(amountWei, days);
+                showNotification('⏳ Transaction pending...');
+                await tx.wait();
+
+                showNotification('✅ Loan approved!');
+                await loadUserData();
+                
+                document.getElementById('borrowAmount').value = '';
+                document.getElementById('borrowResult').classList.remove('show');
+                btn.textContent = 'Request Loan';
+                btn.disabled = true;
+            } catch (error) {
+                console.error(error);
+                showNotification('❌ Transaction failed');
+                document.getElementById('borrowBtn').textContent = 'Request Loan';
+                document.getElementById('borrowBtn').disabled = false;
+            }
+        });
+
+        // Check Loan
+        document.getElementById('checkLoanBtn').addEventListener('click', async () => {
+            try {
+                const loanId = document.getElementById('repayLoanId').value;
+                if (!loanId) {
+                    showNotification('❌ Enter loan ID');
+                    return;
+                }
+
+                const loan = await contract.getLoanDetails(loanId);
+                const amount = ethers.utils.formatEther(loan[2]);
+                const deadline = new Date(loan[3].toNumber() * 1000).toLocaleDateString();
+
+                document.getElementById('dueAmount').textContent = amount + ' tokens';
+                document.getElementById('deadline').textContent = deadline;
+                document.getElementById('repayResult').classList.add('show');
+                document.getElementById('repayBtn').disabled = false;
+            } catch (error) {
+                console.error(error);
+                showNotification('❌ Loan not found');
+            }
+        });
+
+        // Repay Loan
+        document.getElementById('repayBtn').addEventListener('click', async () => {
+            try {
+                const loanId = document.getElementById('repayLoanId').value;
+                const loan = await contract.getLoanDetails(loanId);
+                const amountToRepay = loan[2];
+
+                const btn = document.getElementById('repayBtn');
+                btn.innerHTML = '<span class="loading-text"><span class="spinner"></span> Processing...</span>';
+                btn.disabled = true;
+
+                // Approve tokens first
+                showNotification('⏳ Approving tokens...');
+                const approveTx = await tokenContract.approve(CONTRACT_ADDRESS, amountToRepay);
+                await approveTx.wait();
+
+                // Repay
+                showNotification('⏳ Repaying loan...');
+                const repayTx = await contract.repayLoan(loanId);
+                await repayTx.wait();
+
+                showNotification('✅ Loan repaid! Score updated!');
+                await loadUserData();
+
+                document.getElementById('repayLoanId').value = '';
+                document.getElementById('repayResult').classList.remove('show');
+                btn.textContent = 'Repay Now';
+                btn.disabled = true;
+            } catch (error) {
+                console.error(error);
+                showNotification('❌ Repayment failed');
+                document.getElementById('repayBtn').textContent = 'Repay Now';
+                document.getElementById('repayBtn').disabled = false;
+            }
+        });
+
+        // Fund Pool
+        document.getElementById('fundBtn').addEventListener('click', async () => {
+            try {
+                const amount = document.getElementById('fundAmount').value;
+                if (!amount || amount <= 0) {
+                    showNotification('❌ Enter valid amount');
+                    return;
+                }
+
+                const amountWei = ethers.utils.parseEther(amount);
+                const btn = document.getElementById('fundBtn');
+                btn.innerHTML = '<span class="loading-text"><span class="spinner"></span> Processing...</span>';
+                btn.disabled = true;
+
+                // Approve
+                showNotification('⏳ Approving tokens...');
+                const approveTx = await tokenContract.approve(CONTRACT_ADDRESS, amountWei);
+                await approveTx.wait();
+
+                // Add liquidity
+                showNotification('⏳ Adding liquidity...');
+                const tx = await contract.addLiquidity(amountWei);
+                await tx.wait();
+
+                showNotification('✅ Liquidity added!');
+                await loadUserData();
+                
+                document.getElementById('fundAmount').value = '';
+                btn.textContent = 'Add Liquidity';
+                btn.disabled = false;
+            } catch (error) {
+                console.error(error);
+                showNotification('❌ Transaction failed');
+                document.getElementById('fundBtn').textContent = 'Add Liquidity';
+                document.getElementById('fundBtn').disabled = false;
+            }
+        });
+
+        // Load Loans
+        async function loadLoans() {
+            try {
+                const loanIds = await contract.getUserLoans(userAddress);
+                
+                if (loanIds.length === 0) {
+                    document.getElementById('loansList').innerHTML = '<p style="opacity: 0.5; text-align: center;">No loans yet. Borrow your first loan above!</p>';
+                    return;
+                }
+
+                let html = '';
+                for (let id of loanIds) {
+                    const loan = await contract.getLoanDetails(id);
+                    const amount = ethers.utils.formatEther(loan[1]);
+                    const amountToRepay = ethers.utils.formatEther(loan[2]);
+                    const deadline = new Date(loan[3].toNumber() * 1000).toLocaleDateString();
+                    const repaid = loan[4];
+                    const isOverdue = loan[6];
+
+                    html += `
+                        <div class="loan-item">
+                            <div class="loan-header">
+                                <div class="loan-id">Loan #${id}</div>
+                                <div class="loan-status ${repaid ? 'status-repaid' : 'status-active'}">
+                                    ${repaid ? '✓ Repaid' : (isOverdue ? '⚠ Overdue' : '⏳ Active')}
+                                </div>
+                            </div>
+                            <div class="loan-details">
+                                <div class="loan-detail">
+                                    <div class="loan-detail-label">Borrowed</div>
+                                    <div class="loan-detail-value">${amount}</div>
+                                </div>
+                                <div class="loan-detail">
+                                    <div class="loan-detail-label">To Repay</div>
+                                    <div class="loan-detail-value">${amountToRepay}</div>
+                                </div>
+                                <div class="loan-detail">
+                                    <div class="loan-detail-label">Deadline</div>
+                                    <div class="loan-detail-value">${deadline}</div>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                }
+
+                document.getElementById('loansList').innerHTML = html;
+            } catch (error) {
+                console.error('Error loading loans:', error);
+            }
+        }
+
+        // Show Notification
+        function showNotification(message) {
+            const notif = document.getElementById('notification');
+            notif.textContent = message;
+            notif.classList.add('show');
+            setTimeout(() => {
+                notif.classList.remove('show');
+            }, 3000);
+        }
+    </script>
+</body>
+</html>
