@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>ASCEND Protocol - DeFi Lending</title>
-    <script src="https://cdn.ethers.io/lib/ethers-5.2.umd.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.umd.min.js"></script>
     <style>
         * {
             margin: 0;
@@ -868,6 +868,16 @@
 
                 provider = new ethers.providers.Web3Provider(window.ethereum);
                 await provider.send("eth_requestAccounts", []);
+                
+                // Check network
+                const network = await provider.getNetwork();
+                if (network.chainId !== 11155111) { // Sepolia chain ID
+                    showNotification('❌ Please switch to Sepolia network!');
+                    btn.textContent = 'Wrong Network - Switch to Sepolia';
+                    btn.disabled = false;
+                    return;
+                }
+                
                 signer = provider.getSigner();
                 userAddress = await signer.getAddress();
 
@@ -883,7 +893,7 @@
                 showNotification('✅ Wallet connected!');
             } catch (error) {
                 console.error(error);
-                showNotification('❌ Connection failed');
+                showNotification('❌ Connection failed: ' + error.message);
                 document.getElementById('connectBtn').textContent = 'Connect Wallet';
                 document.getElementById('connectBtn').disabled = false;
             }
